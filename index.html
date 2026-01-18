@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Meal Tracker</title>
+    <title>CalorieSite – Meal Tracker</title>
 
     <!-- PWA Manifest -->
     <link rel="manifest" href="manifest.json">
@@ -14,24 +14,47 @@
     <link rel="apple-touch-icon" href="icons/icon-192.png">
 
     <link rel="stylesheet" href="style.css">
+
+    <!-- Supabase JS -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
     <header>
-        <h1>Meal Tracker</h1>
-        <p class="subtitle">Log meals • AI calorie estimates • Daily totals</p>
+        <h1>CalorieSite</h1>
+        <p class="subtitle">AI-powered meal tracking with cloud sync</p>
     </header>
 
     <main>
 
-        <section class="card">
+        <!-- AUTH CARD -->
+        <section id="authCard" class="card">
+            <h2 id="authTitle">Login</h2>
+
+            <input id="authEmail" type="email" placeholder="Email" class="auth-input">
+            <input id="authPassword" type="password" placeholder="Password" class="auth-input">
+
+            <button id="authSubmitBtn">Login</button>
+
+            <p id="authToggleText">
+                Don't have an account?
+                <span id="authToggleLink" class="auth-link">Register</span>
+            </p>
+
+            <p id="authStatus" class="auth-status"></p>
+        </section>
+
+        <button id="logoutBtn" class="secondary-btn hidden">Logout</button>
+
+        <!-- ADD MEAL CARD -->
+        <section id="addMealCard" class="card hidden">
             <h2>Add a Meal</h2>
             <textarea id="mealInput" placeholder="Describe your meal..."></textarea>
             <button id="addMealBtn">Add Meal</button>
         </section>
 
-        <section class="card camera-card">
+        <!-- CAMERA CARD -->
+        <section id="cameraCard" class="card hidden camera-card">
             <div class="camera-card-header">
                 <h2>Scan Meal</h2>
                 <button id="toggleCameraBtn" class="secondary-btn">Open Camera</button>
@@ -42,7 +65,7 @@
                 <canvas id="cameraCanvas" class="hidden"></canvas>
 
                 <div class="camera-buttons">
-                    <button id="captureBtn">Capture</button>
+                    <button id="captureBtn" class="hidden">Capture</button>
                     <button id="retakeBtn" class="secondary-btn hidden">Retake</button>
                     <button id="analyzePhotoBtn" class="secondary-btn hidden">Analyze</button>
                 </div>
@@ -51,12 +74,14 @@
             </div>
         </section>
 
-        <section class="card totals">
+        <!-- TOTALS -->
+        <section id="totalsCard" class="card totals hidden">
             <h2>Today's Total</h2>
             <p><strong id="totalCalories">0</strong> calories</p>
         </section>
 
-        <section class="card">
+        <!-- MEALS LIST -->
+        <section id="mealsCard" class="card hidden">
             <h2>Meals Today</h2>
             <ul id="mealList"></ul>
         </section>
@@ -64,7 +89,7 @@
     </main>
 
     <footer>
-        <p>Calorie Tracker • Your personal daily log</p>
+        <p>CalorieSite • Your personal daily log</p>
     </footer>
 
     <script src="script.js"></script>
@@ -78,4 +103,3 @@
 
 </body>
 </html>
-
