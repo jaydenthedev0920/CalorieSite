@@ -1,57 +1,206 @@
-// ====== BASIC MEAL LOGIC ======
+// ====== SUPABASE INIT ======
+const SUPABASE_URL = "https://uuodjmgpyjuqcjnletuc.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_VrRJ-xDvsIom6yDpx6gfCg_HtFhYYHq";
 
-// Load saved meals on startup
-document.addEventListener("DOMContentLoaded", () => {
-    loadMeals();
-    updateTotal();
-});
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let currentUser = null;
 
-// Elements
+// ====== DOM ELEMENTS ======
+
+// Auth
+const authCard = document.getElementById("authCard");
+const authTitle = document.getElementById("authTitle");
+const authEmail = document.getElementById("authEmail");
+const authPassword = document.getElementById("authPassword");
+const authSubmitBtn = document.getElementById("authSubmitBtn");
+const authToggleText = document.getElementById("authToggleText");
+const authStatus = document.getElementById("authStatus");
+const logoutBtn = document.getElementById("logoutBtn");
+
+// Main app cards
+const addMealCard = document.getElementById("addMealCard");
+const cameraCard = document.getElementById("cameraCard");
+const totalsCard = document.getElementById("totalsCard");
+const mealsCard = document.getElementById("mealsCard");
+
+// Meal elements
 const mealInput = document.getElementById("mealInput");
 const addMealBtn = document.getElementById("addMealBtn");
 const mealList = document.getElementById("mealList");
 const totalCaloriesEl = document.getElementById("totalCalories");
 
-// Add meal button (text-based)
+// Camera elements
+const toggleCameraBtn = document.getElementById("toggleCameraBtn");
+const cameraContainer = document.getElementById("cameraContainer");
+const cameraPreview = document.getElementById("cameraPreview");
+const cameraCanvas = document.getElementById("cameraCanvas");
+const captureBtn = document.getElementById("captureBtn");
+const retakeBtn = document.getElementById("retakeBtn");
+const analyzePhotoBtn = document.getElementById("analyzePhotoBtn");
+const cameraStatus = document.getElementById("cameraStatus");
+
+let isLoginMode = true;
+let cameraStream = null;
+let capturedImageData = null;
+
+// ====== AUTH LOGIC ======
+
+function wireAuthToggleLink() {
+    const link = document.getElementById("authToggleLink");
+    if (!link) return;
+    link.addEventListener("click", () => {
+        isLoginMode = !isLoginMode;
+
+        authTitle.textContent = isLoginMode ? "Login" : "Register";
+        authSubmitBtn.textContent = isLoginMode ? "Login" : "Create Account";
+        authToggleText.innerHTML = isLoginMode
+            ? `Don't have an account? <span id="authToggleLink" class="auth-link">Register</span>`
+            : `Already have an account? <span id="authToggleLink" class="auth-link">Login</span>`;
+
+        wireAuthToggleLink();
+    });
+}
+
+wireAuthToggleLink();
+
+authSubmitBtn.addEventListener("click", async () => {
+    const email = authEmail.value.trim();
+    const password = authPassword.value.trim();
+
+    if (!email || !password) {
+        authStatus.textContent = "Please enter email and password.";
+        return;
+    }
+
+    authStatus.textContent = "Processing...";
+
+    try {
+        if (isLoginMode) {
+            const { error } = await supabaseClient.auth.signInWithPassword({
+                email,
+                password
+            });
+            if (error) throw error;
+        } else {
+            const { error } = await supabaseClient.auth.signUp({
+                email,
+                password
+            });
+            if (error) throw error;
+        }
+
+        authStatus.textContent = "Success!";
+        await checkSession();
+    } catch (err) {
+        authStatus.textContent = err.message || "Authentication error.";
+    }
+});
+
+logoutBtn.addEventListener("click", async () => {
+    await supabaseClient.auth.signOut();
+    currentUser = null;
+    showAuthUI();
+});
+
+// Session check
+async function checkSession() {
+    const { data } = await supabaseClient.auth.getSession();
+    currentUser = data.session?.user || null;
+
+    if (currentUser) {
+        hideAuthUI();
+        await loadCloudMeals();
+    } else {
+        showAuthUI();
+    }
+}
+
+function hideAuthUI() {
+    authCard.classList.add("hidden");
+    logoutBtn.classList.remove("hidden");
+
+    addMealCard.classList.remove("hidden");
+    cameraCard.classList.remove("hidden");
+    totalsCard.classList.remove("hidden");
+    mealsCard.classList.remove("hidden");
+}
+
+function showAuthUI() {
+    authCard.classList.remove("hidden");
+    logoutBtn.classList.add("hidden");
+
+    addMealCard.classList.add("hidden");
+    cameraCard.classList.add("hidden");
+    totalsCard.classList.add("hidden");
+    mealsCard.classList.add("hidden");
+}
+
+// ====== MEAL LOGIC (CLOUD) ======
+
 addMealBtn.addEventListener("click", async () => {
     const text = mealInput.value.trim();
-    if (!text) return;
+    if (!text || !currentUser) return;
 
     const calories = await estimateCaloriesFromText(text);
 
     const meal = {
         text,
         calories,
-        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+        time: new Date().toISOString()
     };
 
-    saveMeal(meal);
-    addMealToDOM(meal);
-    updateTotal();
+    await saveMealToCloud(meal);
+    await loadCloudMeals();
 
     mealInput.value = "";
 });
 
-// Placeholder AI function for text
 async function estimateCaloriesFromText(mealText) {
-    // Replace this with your text-based AI call later
-    return Math.floor(Math.random() * 400) + 100; // 100–500 calories
+    // Placeholder: replace with real text AI later
+    return Math.floor(Math.random() * 400) + 100; // 100–500
 }
 
-// Save meal to localStorage
-function saveMeal(meal) {
-    const meals = JSON.parse(localStorage.getItem("meals")) || [];
-    meals.push(meal);
-    localStorage.setItem("meals", JSON.stringify(meals));
+async function saveMealToCloud(meal) {
+    if (!currentUser) return;
+
+    await supabaseClient.from("meals").insert({
+        user_id: currentUser.id,
+        description: meal.text,
+        calories: meal.calories,
+        timestamp: meal.time
+    });
 }
 
-// Load meals
-function loadMeals() {
-    const meals = JSON.parse(localStorage.getItem("meals")) || [];
-    meals.forEach(addMealToDOM);
+async function loadCloudMeals() {
+    if (!currentUser) return;
+
+    const { data, error } = await supabaseClient
+        .from("meals")
+        .select("*")
+        .eq("user_id", currentUser.id)
+        .order("timestamp", { ascending: true });
+
+    if (error) {
+        console.error(error);
+        return;
+    }
+
+    mealList.innerHTML = "";
+    let total = 0;
+
+    data.forEach(row => {
+        const meal = {
+            text: row.description,
+            calories: row.calories,
+            time: new Date(row.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+        };
+        total += meal.calories;
+        addMealToDOM(meal);
+    });
+
+    totalCaloriesEl.textContent = total;
 }
 
-// Add meal to page
 function addMealToDOM(meal) {
     const li = document.createElement("li");
     li.classList.add("meal-item");
@@ -64,32 +213,19 @@ function addMealToDOM(meal) {
     mealList.appendChild(li);
 }
 
-// Update total calories
-function updateTotal() {
-    const meals = JSON.parse(localStorage.getItem("meals")) || [];
-    const total = meals.reduce((sum, m) => sum + m.calories, 0);
-    totalCaloriesEl.textContent = total;
-}
-
 // ====== CAMERA + IMAGE AI LOGIC ======
 
-const toggleCameraBtn = document.getElementById("toggleCameraBtn");
-const cameraContainer = document.getElementById("cameraContainer");
-const cameraPreview = document.getElementById("cameraPreview");
-const cameraCanvas = document.getElementById("cameraCanvas");
-const captureBtn = document.getElementById("captureBtn");
-const retakeBtn = document.getElementById("retakeBtn");
-const analyzePhotoBtn = document.getElementById("analyzePhotoBtn");
-const cameraStatus = document.getElementById("cameraStatus");
-
-let cameraStream = null;
-let capturedImageData = null;
-
-// Toggle camera card visibility
 toggleCameraBtn.addEventListener("click", async () => {
     if (cameraContainer.classList.contains("hidden")) {
         cameraContainer.classList.remove("hidden");
         toggleCameraBtn.textContent = "Close Camera";
+
+        captureBtn.classList.remove("hidden");
+        retakeBtn.classList.add("hidden");
+        analyzePhotoBtn.classList.add("hidden");
+        cameraCanvas.classList.add("hidden");
+        cameraPreview.classList.remove("hidden");
+
         await startCamera();
     } else {
         stopCamera();
@@ -98,7 +234,6 @@ toggleCameraBtn.addEventListener("click", async () => {
     }
 });
 
-// Start camera
 async function startCamera() {
     cameraStatus.textContent = "Starting camera...";
     try {
@@ -107,11 +242,6 @@ async function startCamera() {
             audio: false
         });
         cameraPreview.srcObject = cameraStream;
-        cameraPreview.classList.remove("hidden");
-        cameraCanvas.classList.add("hidden");
-        captureBtn.classList.remove("hidden");
-        retakeBtn.classList.add("hidden");
-        analyzePhotoBtn.classList.add("hidden");
         cameraStatus.textContent = "Point your camera at your meal and tap Capture.";
     } catch (err) {
         console.error(err);
@@ -119,7 +249,6 @@ async function startCamera() {
     }
 }
 
-// Stop camera
 function stopCamera() {
     if (cameraStream) {
         cameraStream.getTracks().forEach(track => track.stop());
@@ -127,9 +256,9 @@ function stopCamera() {
     }
     cameraPreview.srcObject = null;
     cameraStatus.textContent = "";
+    capturedImageData = null;
 }
 
-// Capture frame from video
 captureBtn.addEventListener("click", () => {
     if (!cameraStream) return;
 
@@ -153,7 +282,6 @@ captureBtn.addEventListener("click", () => {
     cameraStatus.textContent = "Photo captured. Tap Analyze to estimate calories.";
 });
 
-// Retake photo
 retakeBtn.addEventListener("click", () => {
     cameraCanvas.classList.add("hidden");
     cameraPreview.classList.remove("hidden");
@@ -166,9 +294,8 @@ retakeBtn.addEventListener("click", () => {
     cameraStatus.textContent = "Point your camera at your meal and tap Capture.";
 });
 
-// Analyze captured photo
 analyzePhotoBtn.addEventListener("click", async () => {
-    if (!capturedImageData) return;
+    if (!capturedImageData || !currentUser) return;
 
     cameraStatus.textContent = "Analyzing meal with AI...";
     analyzePhotoBtn.disabled = true;
@@ -182,12 +309,11 @@ analyzePhotoBtn.addEventListener("click", async () => {
         const meal = {
             text: mealText,
             calories,
-            time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+            time: new Date().toISOString()
         };
 
-        saveMeal(meal);
-        addMealToDOM(meal);
-        updateTotal();
+        await saveMealToCloud(meal);
+        await loadCloudMeals();
 
         cameraStatus.textContent = `Estimated: ${calories} calories — ${mealText}`;
     } catch (err) {
@@ -198,31 +324,8 @@ analyzePhotoBtn.addEventListener("click", async () => {
     }
 });
 
-// Placeholder AI function for image
+// Placeholder AI image function
 async function estimateCaloriesFromImage(base64Image) {
-    // base64Image is a data URL (e.g., "data:image/jpeg;base64,...")
-    // In production, strip the prefix and send the base64 to your AI vision API.
-
-    // Example structure for a real call (pseudo-code):
-    /*
-    const response = await fetch("YOUR_VISION_API_ENDPOINT", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer YOUR_API_KEY"
-        },
-        body: JSON.stringify({
-            image: base64Image
-        })
-    });
-    const data = await response.json();
-    return {
-        description: data.detected_foods_description,
-        calories: data.estimated_calories
-    };
-    */
-
-    // For now, return a fake but structured response:
     const fakeFoods = [
         "Bowl of pasta with sauce",
         "Grilled chicken with vegetables",
@@ -238,3 +341,8 @@ async function estimateCaloriesFromImage(base64Image) {
         calories: randomCalories
     };
 }
+
+// ====== INIT ======
+document.addEventListener("DOMContentLoaded", () => {
+    checkSession();
+});
