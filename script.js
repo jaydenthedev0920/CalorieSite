@@ -330,12 +330,16 @@ analyzePhotoBtn.addEventListener("click", async () => {
 
     const data = await res.json();
     
+    // Debug logging
+    console.log("API Response:", data);
+    
     if (data.error) {
-      throw new Error(data.error);
+      cameraStatus.textContent = `Error: ${data.error}`;
+      return;
     }
 
     if (!data.has_food) {
-      cameraStatus.textContent = `❌ No food detected (${Math.round((data.confidence || 0) * 100)}% confidence). Try retaking the photo.`;
+      cameraStatus.innerHTML = `❌ No food detected (${Math.round((data.confidence || 0)*100)}% confidence)<br><small>Debug: ${JSON.stringify(data).substring(0, 200)}</small>`;
       return;
     }
 
