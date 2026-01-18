@@ -30,6 +30,26 @@
             <button id="addMealBtn">Add Meal</button>
         </section>
 
+        <section class="card camera-card">
+            <div class="camera-card-header">
+                <h2>Scan Meal</h2>
+                <button id="toggleCameraBtn" class="secondary-btn">Open Camera</button>
+            </div>
+
+            <div id="cameraContainer" class="camera-container hidden">
+                <video id="cameraPreview" autoplay playsinline></video>
+                <canvas id="cameraCanvas" class="hidden"></canvas>
+
+                <div class="camera-buttons">
+                    <button id="captureBtn">Capture</button>
+                    <button id="retakeBtn" class="secondary-btn hidden">Retake</button>
+                    <button id="analyzePhotoBtn" class="secondary-btn hidden">Analyze</button>
+                </div>
+
+                <p id="cameraStatus" class="camera-status"></p>
+            </div>
+        </section>
+
         <section class="card totals">
             <h2>Today's Total</h2>
             <p><strong id="totalCalories">0</strong> calories</p>
