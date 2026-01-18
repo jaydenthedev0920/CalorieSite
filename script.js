@@ -118,7 +118,7 @@ addMealBtn.addEventListener("click", async () => {
   const text = mealInput.value.trim();
   if (!text || !currentUser) return;
 
-  const calories = Math.floor(Math.random() * 400) + 100; // placeholder
+  const calories = Math.floor(Math.random() * 400) + 100; // placeholder for manual input
   await saveMealToCloud({ text, calories, time: new Date().toISOString() });
   mealInput.value = "";
   await loadCloudMeals();
