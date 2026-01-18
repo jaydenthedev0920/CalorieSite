@@ -6,6 +6,7 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let currentUser = null;
 
 // ====== DOM ELEMENTS ======
+// Auth
 const authCard = document.getElementById("authCard");
 const authTitle = document.getElementById("authTitle");
 const authEmail = document.getElementById("authEmail");
@@ -15,16 +16,19 @@ const authToggleText = document.getElementById("authToggleText");
 const authStatus = document.getElementById("authStatus");
 const logoutBtn = document.getElementById("logoutBtn");
 
+// Main app cards
 const addMealCard = document.getElementById("addMealCard");
 const cameraCard = document.getElementById("cameraCard");
 const totalsCard = document.getElementById("totalsCard");
 const mealsCard = document.getElementById("mealsCard");
 
+// Meal elements
 const mealInput = document.getElementById("mealInput");
 const addMealBtn = document.getElementById("addMealBtn");
 const mealList = document.getElementById("mealList");
 const totalCaloriesEl = document.getElementById("totalCalories");
 
+// Camera elements
 const toggleCameraBtn = document.getElementById("toggleCameraBtn");
 const cameraContainer = document.getElementById("cameraContainer");
 const cameraPreview = document.getElementById("cameraPreview");
@@ -38,7 +42,7 @@ let isLoginMode = true;
 let cameraStream = null;
 let capturedImageData = null;
 
-// ====== AUTH ======
+// ====== AUTH LOGIC ======
 function wireAuthToggleLink() {
     const link = document.getElementById("authToggleLink");
     if (!link) return;
@@ -97,6 +101,7 @@ function hideAuthUI() {
     totalsCard.classList.remove("hidden");
     mealsCard.classList.remove("hidden");
 }
+
 function showAuthUI() {
     authCard.classList.remove("hidden");
     logoutBtn.classList.add("hidden");
@@ -106,7 +111,7 @@ function showAuthUI() {
     mealsCard.classList.add("hidden");
 }
 
-// ====== MEALS ======
+// ====== MEAL LOGIC ======
 addMealBtn.addEventListener("click", async () => {
     const text = mealInput.value.trim();
     if (!text || !currentUser) return;
@@ -149,7 +154,7 @@ function addMealToDOM(meal) {
     mealList.appendChild(li);
 }
 
-// ====== CAMERA ======
+// ====== CAMERA LOGIC ======
 toggleCameraBtn.addEventListener("click", async () => {
     if (cameraContainer.classList.contains("hidden")) {
         cameraContainer.classList.remove("hidden");
@@ -204,27 +209,41 @@ retakeBtn.addEventListener("click", () => {
     analyzePhotoBtn.classList.add("hidden");
 });
 
-// ====== AI IMAGE ANALYSIS ======
+// ====== AI IMAGE ANALYSIS WITH PER-ITEM CALORIES ======
 analyzePhotoBtn.addEventListener("click", async () => {
     if (!capturedImageData || !currentUser) return;
     analyzePhotoBtn.disabled = true;
     cameraStatus.textContent = "Analyzing image...";
     try {
         const analysis = await estimateCaloriesFromImage(capturedImageData);
+
         if (!analysis.hasFood) {
             cameraStatus.textContent = `No food detected (${Math.round(analysis.confidence*100)}% confidence)`;
             return;
         }
+
+        // Save total calories
         await saveMealToCloud({
             text: analysis.description,
             calories: analysis.calories,
             time: new Date().toISOString()
         });
+
         await loadCloudMeals();
-        cameraStatus.textContent = `Saved: ${analysis.calories} calories (${Math.round(analysis.confidence*100)}%)`;
+
+        // Display per-item breakdown
+        let objectsHtml = analysis.objects.map(obj =>
+            `<li>${obj.name} — ${obj.estimated_calories} cal (${Math.round(obj.confidence*100)}% confidence)</li>`
+        ).join("");
+
+        cameraStatus.innerHTML = `
+            Total: ${analysis.calories} cal — ${analysis.description}
+            <ul>${objectsHtml}</ul>
+        `;
+
     } catch (err) {
         console.error(err);
-        cameraStatus.textContent = "AI analysis failed."; // Only network/server errors reach here
+        cameraStatus.textContent = "AI analysis failed.";
     } finally {
         analyzePhotoBtn.disabled = false;
     }
@@ -243,6 +262,7 @@ async function estimateCaloriesFromImage(base64Image) {
     } catch {
         return { hasFood:false, confidence:0, description:null, calories:0, objects:[] };
     }
+
     return {
         hasFood: data.has_food === true,
         confidence: data.confidence ?? 0,
