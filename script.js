@@ -280,7 +280,8 @@ analyzePhotoBtn.addEventListener("click", async () => {
         const analysis = await estimateCaloriesFromImage(capturedImageData);
 
         if (!analysis.hasFood) {
-            cameraStatus.textContent = `No food detected (${Math.round(analysis.confidence * 100)}% confidence)`;
+            cameraStatus.textContent =
+                `No food detected (${Math.round(analysis.confidence * 100)}% confidence)`;
             return;
         }
 
@@ -291,16 +292,19 @@ analyzePhotoBtn.addEventListener("click", async () => {
         });
 
         await loadCloudMeals();
-        cameraStatus.textContent = `Saved: ${analysis.calories} calories`;
 
-    } catch {
+        cameraStatus.textContent =
+            `Saved: ${analysis.calories} calories (${Math.round(analysis.confidence * 100)}%)`;
+
+    } catch (err) {
+        console.error(err);
         cameraStatus.textContent = "AI analysis failed.";
     } finally {
         analyzePhotoBtn.disabled = false;
     }
 });
 
-// ====== WORKER CALL ======
+// ====== WORKER CALL (FIXED & TOTAL) ======
 
 async function estimateCaloriesFromImage(base64Image) {
     const base64 = base64Image.split(",")[1];
@@ -314,23 +318,19 @@ async function estimateCaloriesFromImage(base64Image) {
         }
     );
 
-    if (!res.ok) throw new Error("Worker error");
+    if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text);
+    }
 
     const data = await res.json();
 
-    if (!data.has_food) {
-        return {
-            hasFood: false,
-            confidence: data.confidence
-        };
-    }
-
     return {
-        hasFood: true,
-        description: data.description,
-        calories: data.calories_estimate,
-        confidence: data.confidence,
-        objects: data.objects
+        hasFood: data.has_food === true,
+        confidence: data.confidence ?? 0,
+        description: data.description ?? null,
+        calories: data.calories_estimate ?? 0,
+        objects: Array.isArray(data.objects) ? data.objects : []
     };
 }
 
