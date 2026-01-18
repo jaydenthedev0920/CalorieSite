@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meal Tracker</title>
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+
+    <!-- iOS Support -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <header>
+        <h1>Meal Tracker</h1>
+        <p class="subtitle">Log meals • AI calorie estimates • Daily totals</p>
+    </header>
+
+    <main>
+
+        <section class="card">
+            <h2>Add a Meal</h2>
+            <textarea id="mealInput" placeholder="Describe your meal..."></textarea>
+            <button id="addMealBtn">Add Meal</button>
+        </section>
+
+        <section class="card totals">
+            <h2>Today's Total</h2>
+            <p><strong id="totalCalories">0</strong> calories</p>
+        </section>
+
+        <section class="card">
+            <h2>Meals Today</h2>
+            <ul id="mealList"></ul>
+        </section>
+
+    </main>
+
+    <footer>
+        <p>Calorie Tracker • Your personal daily log</p>
+    </footer>
+
+    <script src="script.js"></script>
+
+    <!-- Register Service Worker -->
+    <script>
+        if ("serviceWorker" in navigator) {
+            navigator.serviceWorker.register("service-worker.js");
+        }
+    </script>
+
+</body>
+</html>
