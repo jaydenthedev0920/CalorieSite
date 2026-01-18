@@ -48,6 +48,7 @@ let capturedImageData = null;
 function wireAuthToggleLink() {
     const link = document.getElementById("authToggleLink");
     if (!link) return;
+
     link.addEventListener("click", () => {
         isLoginMode = !isLoginMode;
 
@@ -76,16 +77,10 @@ authSubmitBtn.addEventListener("click", async () => {
 
     try {
         if (isLoginMode) {
-            const { error } = await supabaseClient.auth.signInWithPassword({
-                email,
-                password
-            });
+            const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
             if (error) throw error;
         } else {
-            const { error } = await supabaseClient.auth.signUp({
-                email,
-                password
-            });
+            const { error } = await supabaseClient.auth.signUp({ email, password });
             if (error) throw error;
         }
 
@@ -102,7 +97,8 @@ logoutBtn.addEventListener("click", async () => {
     showAuthUI();
 });
 
-// Session check
+// ====== SESSION ======
+
 async function checkSession() {
     const { data } = await supabaseClient.auth.getSession();
     currentUser = data.session?.user || null;
@@ -135,7 +131,7 @@ function showAuthUI() {
     mealsCard.classList.add("hidden");
 }
 
-// ====== MEAL LOGIC (CLOUD) ======
+// ====== MEALS (CLOUD) ======
 
 addMealBtn.addEventListener("click", async () => {
     const text = mealInput.value.trim();
@@ -143,21 +139,18 @@ addMealBtn.addEventListener("click", async () => {
 
     const calories = await estimateCaloriesFromText(text);
 
-    const meal = {
+    await saveMealToCloud({
         text,
         calories,
         time: new Date().toISOString()
-    };
-
-    await saveMealToCloud(meal);
-    await loadCloudMeals();
+    });
 
     mealInput.value = "";
+    await loadCloudMeals();
 });
 
-async function estimateCaloriesFromText(mealText) {
-    // Placeholder text-based estimate (can be upgraded later)
-    return Math.floor(Math.random() * 400) + 100; // 100–500
+async function estimateCaloriesFromText() {
+    return Math.floor(Math.random() * 400) + 100;
 }
 
 async function saveMealToCloud(meal) {
@@ -174,28 +167,25 @@ async function saveMealToCloud(meal) {
 async function loadCloudMeals() {
     if (!currentUser) return;
 
-    const { data, error } = await supabaseClient
+    const { data } = await supabaseClient
         .from("meals")
         .select("*")
         .eq("user_id", currentUser.id)
         .order("timestamp", { ascending: true });
 
-    if (error) {
-        console.error(error);
-        return;
-    }
-
     mealList.innerHTML = "";
     let total = 0;
 
     data.forEach(row => {
-        const meal = {
+        total += row.calories;
+        addMealToDOM({
             text: row.description,
             calories: row.calories,
-            time: new Date(row.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-        };
-        total += meal.calories;
-        addMealToDOM(meal);
+            time: new Date(row.timestamp).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit"
+            })
+        });
     });
 
     totalCaloriesEl.textContent = total;
@@ -203,17 +193,15 @@ async function loadCloudMeals() {
 
 function addMealToDOM(meal) {
     const li = document.createElement("li");
-    li.classList.add("meal-item");
-
+    li.className = "meal-item";
     li.innerHTML = `
         <strong>${meal.time}</strong> — ${meal.text}
         <span class="meal-calories">(${meal.calories} cal)</span>
     `;
-
     mealList.appendChild(li);
 }
 
-// ====== CAMERA + IMAGE AI LOGIC ======
+// ====== CAMERA ======
 
 toggleCameraBtn.addEventListener("click", async () => {
     if (cameraContainer.classList.contains("hidden")) {
@@ -235,41 +223,32 @@ toggleCameraBtn.addEventListener("click", async () => {
 });
 
 async function startCamera() {
-    cameraStatus.textContent = "Starting camera...";
     try {
         cameraStream = await navigator.mediaDevices.getUserMedia({
             video: { facingMode: "environment" },
             audio: false
         });
         cameraPreview.srcObject = cameraStream;
-        cameraStatus.textContent = "Point your camera at your meal and tap Capture.";
-    } catch (err) {
-        console.error(err);
-        cameraStatus.textContent = "Unable to access camera. Check permissions.";
+        cameraStatus.textContent = "Capture your meal.";
+    } catch {
+        cameraStatus.textContent = "Camera access denied.";
     }
 }
 
 function stopCamera() {
-    if (cameraStream) {
-        cameraStream.getTracks().forEach(track => track.stop());
-        cameraStream = null;
-    }
-    cameraPreview.srcObject = null;
-    cameraStatus.textContent = "";
+    cameraStream?.getTracks().forEach(t => t.stop());
+    cameraStream = null;
     capturedImageData = null;
 }
 
+// ====== IMAGE CAPTURE ======
+
 captureBtn.addEventListener("click", () => {
-    if (!cameraStream) return;
+    cameraCanvas.width = cameraPreview.videoWidth;
+    cameraCanvas.height = cameraPreview.videoHeight;
+    cameraCanvas.getContext("2d").drawImage(cameraPreview, 0, 0);
 
-    const videoWidth = cameraPreview.videoWidth;
-    const videoHeight = cameraPreview.videoHeight;
-
-    cameraCanvas.width = videoWidth;
-    cameraCanvas.height = videoHeight;
-
-    const ctx = cameraCanvas.getContext("2d");
-    ctx.drawImage(cameraPreview, 0, 0, videoWidth, videoHeight);
+    capturedImageData = cameraCanvas.toDataURL("image/jpeg", 0.9);
 
     cameraPreview.classList.add("hidden");
     cameraCanvas.classList.remove("hidden");
@@ -277,79 +256,83 @@ captureBtn.addEventListener("click", () => {
     captureBtn.classList.add("hidden");
     retakeBtn.classList.remove("hidden");
     analyzePhotoBtn.classList.remove("hidden");
-
-    capturedImageData = cameraCanvas.toDataURL("image/jpeg", 0.9);
-    cameraStatus.textContent = "Photo captured. Tap Analyze to estimate calories.";
 });
 
 retakeBtn.addEventListener("click", () => {
+    capturedImageData = null;
     cameraCanvas.classList.add("hidden");
     cameraPreview.classList.remove("hidden");
 
     captureBtn.classList.remove("hidden");
     retakeBtn.classList.add("hidden");
     analyzePhotoBtn.classList.add("hidden");
-
-    capturedImageData = null;
-    cameraStatus.textContent = "Point your camera at your meal and tap Capture.";
 });
+
+// ====== AI IMAGE ANALYSIS ======
 
 analyzePhotoBtn.addEventListener("click", async () => {
     if (!capturedImageData || !currentUser) return;
 
-    cameraStatus.textContent = "Analyzing meal with AI...";
     analyzePhotoBtn.disabled = true;
+    cameraStatus.textContent = "Analyzing image...";
 
     try {
         const analysis = await estimateCaloriesFromImage(capturedImageData);
 
-        const mealText = analysis.description || "Scanned meal";
-        const calories = analysis.calories || 0;
+        if (!analysis.hasFood) {
+            cameraStatus.textContent = `No food detected (${Math.round(analysis.confidence * 100)}% confidence)`;
+            return;
+        }
 
-        const meal = {
-            text: mealText,
-            calories,
+        await saveMealToCloud({
+            text: analysis.description,
+            calories: analysis.calories,
             time: new Date().toISOString()
-        };
+        });
 
-        await saveMealToCloud(meal);
         await loadCloudMeals();
+        cameraStatus.textContent = `Saved: ${analysis.calories} calories`;
 
-        cameraStatus.textContent = `Estimated: ${calories} calories — ${mealText}`;
-    } catch (err) {
-        console.error(err);
-        cameraStatus.textContent = "There was an error analyzing the image.";
+    } catch {
+        cameraStatus.textContent = "AI analysis failed.";
     } finally {
         analyzePhotoBtn.disabled = false;
     }
 });
 
-// ====== REAL AI IMAGE FUNCTION (CLOUDFLARE WORKER) ======
+// ====== WORKER CALL ======
 
 async function estimateCaloriesFromImage(base64Image) {
     const base64 = base64Image.split(",")[1];
 
-    const response = await fetch("https://caloriescanner.jtho09200920.workers.dev/api/analyze-food", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ image: base64 })
-    });
+    const res = await fetch(
+        "https://caloriescanner.jtho09200920.workers.dev/api/analyze-food",
+        {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ image: base64 })
+        }
+    );
 
-    if (!response.ok) {
-        throw new Error("AI analysis failed");
+    if (!res.ok) throw new Error("Worker error");
+
+    const data = await res.json();
+
+    if (!data.has_food) {
+        return {
+            hasFood: false,
+            confidence: data.confidence
+        };
     }
 
-    const data = await response.json();
-
     return {
+        hasFood: true,
         description: data.description,
-        calories: data.calories
+        calories: data.calories_estimate,
+        confidence: data.confidence,
+        objects: data.objects
     };
 }
 
 // ====== INIT ======
-document.addEventListener("DOMContentLoaded", () => {
-    checkSession();
-});
+document.addEventListener("DOMContentLoaded", checkSession);
