@@ -43,7 +43,7 @@ header h1 {
     font-size: 1.2rem;
 }
 
-/* Input */
+/* Inputs */
 textarea {
     width: 100%;
     height: 80px;
@@ -55,7 +55,16 @@ textarea {
     margin-bottom: 10px;
 }
 
-/* Primary Button */
+.auth-input {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 10px;
+    border-radius: 10px;
+    border: 1px solid #ccc;
+    font-size: 1rem;
+}
+
+/* Buttons */
 button {
     padding: 12px;
     background: #4a90e2;
@@ -72,13 +81,11 @@ button:hover {
     background: #3a7ac2;
 }
 
-/* Full-width buttons where needed */
 #addMealBtn,
 .camera-buttons button {
     width: 100%;
 }
 
-/* Secondary Button */
 .secondary-btn {
     background: #e4ecf7;
     color: #2f4a73;
@@ -86,6 +93,19 @@ button:hover {
 
 .secondary-btn:hover {
     background: #d3e0f3;
+}
+
+/* Auth */
+.auth-link {
+    color: #4a90e2;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.auth-status {
+    margin-top: 8px;
+    font-size: 0.85rem;
+    color: #666;
 }
 
 /* Meal List */
