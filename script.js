@@ -156,7 +156,7 @@ addMealBtn.addEventListener("click", async () => {
 });
 
 async function estimateCaloriesFromText(mealText) {
-    // Placeholder: replace with real text AI later
+    // Placeholder text-based estimate (can be upgraded later)
     return Math.floor(Math.random() * 400) + 100; // 100–500
 }
 
@@ -324,21 +324,28 @@ analyzePhotoBtn.addEventListener("click", async () => {
     }
 });
 
-// Placeholder AI image function
+// ====== REAL AI IMAGE FUNCTION (CLOUDFLARE WORKER) ======
+
 async function estimateCaloriesFromImage(base64Image) {
-    const fakeFoods = [
-        "Bowl of pasta with sauce",
-        "Grilled chicken with vegetables",
-        "Burger and fries",
-        "Salad with dressing",
-        "Breakfast plate (eggs, toast, bacon)"
-    ];
-    const randomFood = fakeFoods[Math.floor(Math.random() * fakeFoods.length)];
-    const randomCalories = Math.floor(Math.random() * 500) + 200; // 200–700
+    const base64 = base64Image.split(",")[1];
+
+    const response = await fetch("https://caloriescanner.jtho09200920.workers.dev/api/analyze-food", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ image: base64 })
+    });
+
+    if (!response.ok) {
+        throw new Error("AI analysis failed");
+    }
+
+    const data = await response.json();
 
     return {
-        description: randomFood,
-        calories: randomCalories
+        description: data.description,
+        calories: data.calories
     };
 }
 
